@@ -178,8 +178,8 @@ ypred = B(1) + X(pos_test,:)*B(2:end);
 MSE_test_RIDGE= mean((Y(pos_test)-ypred).^2);
 
 % Para LASSSO
-lamda_LASSO = lambda_grid_LASSO(pos);
-[B, fitInfo] = lasso(X(pos_train,:), Y(pos_train), 'Lambda',lamda_LASSO);
+lambda_LASSO = lambda_grid_LASSO(pos);
+[B, fitInfo] = lasso(X(pos_train,:), Y(pos_train), 'Lambda',lambda_LASSO);
 % El campo "Intercept" de dentro de fitInfo es el Beta0
 ypred = fitInfo.Intercept + X(pos_test,:)*B;
 
@@ -193,4 +193,61 @@ fprintf('\n LASSO, CV lambda = %.2f, el error de test = %4.0f \n',lambda_LASSO,M
 % y el valor de lambda seleccionado
 
 B_RIDGE = ridge(Y,X,lambda_RIDGE,0);
-[B_LASSO, fitInfo] = lasso(X, Y, 'Lambda',lamda_LASSO);
+[B_LASSO, fitInfo] = lasso(X, Y, 'Lambda',lambda_LASSO);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% PCR (Principa component regression)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Estandarizar todos los predictores (media = 0, desviación estándar = 1)
+X = zscore(X);
+X1 = X(pos_train,:);
+Y1 = Y(pos_train);
+X2 = X(pos_test,:);
+Y2 = Y(pos_test);
+
+% Aplicamos PCA (Principal Component Analysis)
+[PCALoadings, PCAScores, PCAVar,~,explained, mu] = pca(X1);
+cumsum(explained);
+
+CV_MSE_PCR = [];
+
+for aa = 1:k
+    pos_train_CV = c.training(aa);
+    pos_test_CV  = c.test(aa);
+
+
+    Ytrain = Y1(pos_train_CV);
+    Ytest  = Y1(pos_test_CV);
+
+    for bb = 1:size(X,2)
+        % 1:bb - Estamos buscando el número optimo de componentes
+        % principales!
+        % Iteramos CANTIDADES de componentes!
+        X_PCR_train = PCAScores(pos_train_CV,(1:bb));
+        X_PCR_test = PCAScores(pos_test_CV,(1:bb));
+
+        mdl = fitlm(X_PCR_train, Ytrain);
+        CV_MSE_PCR(aa,bb) = mean((Ytest-predict(mdl, X_PCR_test)).^2);
+
+    end
+
+end
+
+[val, pos] = min(mean(CV_MSE_PCR));
+plot(mean(CV_MSE_PCR));
+hold on;
+plot(pos, val, 'ro');
+hold off;
+xlabel("M");
+ylabel("MSE 10-FOLD CV");
+pause;
+close all;
+
+mdl = fitlm(PCAScores(:,1:pos),Y1);
+X_PCR_test = (X2-mu)*PCALoadings(:,1:pos);
+MSE_test_PCR = mean((Y2-predict(mdl, X_PCR_test)).^2);
+fprintf('\n PCR, M = %d, el MSE de test = %.2f\n', pos, MSE_test_PCR);
+
+[PCAloadings, PCAScores, PCAVar, ~, explained, mu] = pca(X, 'NumComponents',pos);
+mdl_final = fitlm(PCAScores, Y);
