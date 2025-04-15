@@ -175,7 +175,7 @@ pause;close;
 lambda_RIDGE = lambda_grid(pos);
 B = ridge(Y(pos_train),X(pos_train,:),lambda_RIDGE,0);
 ypred = B(1) + X(pos_test,:)*B(2:end);
-MSE_test_RIDGE= mean((Y(pos_test)-ypred).^2);
+MSE_test_RIDGE = mean((Y(pos_test)-ypred).^2);
 
 % Para LASSSO
 lambda_LASSO = lambda_grid_LASSO(pos);
